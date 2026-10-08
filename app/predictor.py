@@ -9,13 +9,20 @@ def poisson_pmf(rate: float, k: int) -> float:
         raise ValueError("rate must be >= 0")
     if k < 0:
         raise ValueError("k must be >= 0")
+    if rate == 0:
+        return 1.0 if k == 0 else 0.0
     return (exp(-rate) * (rate ** k)) / factorial(k)
 
 
-def compute_expected_goals(home: object, away: object) -> Tuple[float, float]:
-    """Simple expected goals estimate based on teams' offensive and defensive averages."""
-    home_rate = ((home.goals_for_avg + away.goals_against_avg) / 2.0) * 0.95
-    away_rate = ((away.goals_for_avg + home.goals_against_avg) / 2.0) * 0.95
+def compute_expected_goals(home_team: object, away_team: object) -> Tuple[float, float]:
+    home_attack = home_team.goals_for_avg
+    home_defense = home_team.goals_against_avg
+
+    away_attack = away_team.goals_for_avg
+    away_defense = away_team.goals_against_avg
+
+    home_rate = (home_attack + away_defense) / 2.0
+    away_rate = (away_attack + home_defense) / 2.0
     return home_rate, away_rate
 
 
@@ -42,8 +49,8 @@ def compute_goal_distribution(home_rate: float, away_rate: float, max_goals: int
 
 def top_exact_scores(home_rate: float, away_rate: float, limit: int = 2) -> List[Tuple[str, float]]:
     score_map: Dict[Tuple[int, int], float] = {}
-    for home_goals in range(0, 7):
-        for away_goals in range(0, 7):
+    for home_goals in range(0, 6):
+        for away_goals in range(0, 6):
             score_map[(home_goals, away_goals)] = score_probability(home_rate, away_rate, home_goals, away_goals)
 
     ranked = sorted(score_map.items(), key=lambda item: item[1], reverse=True)

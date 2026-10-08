@@ -1,26 +1,123 @@
-# Python bytecode and caches
-__pycache__/
-*.py[cod]
-*.pyo
-*.pyo
+# FIFA Virtual Match Analyzer
 
-# Virtual environments
-.venv/
-venv/
+Ce projet Python analyse un match virtuel FIFA à partir des données saisies par l'utilisateur :
+- équipe à domicile
+- équipe à l'extérieur
+- matchs joués
+- victoires, nuls, défaites
+- buts marqués et encaissés
 
-# IDE files
-.vscode/
-.idea/
+Il produit ensuite :
+- Over / Under 2.5
+- BTTS Oui / Non
+- nombre probable de buts
+- 2 scores exacts les plus probables
 
-# OS files
-.DS_Store
-Thumbs.db
+## Structure
 
-# Environment files
-.env
-.env.*
+```text
+fifa-virtual-analyzer/
+├── app/
+│   ├── __init__.py
+│   ├── main.py
+│   ├── predictor.py
+│   ├── schemas.py
+│   └── service.py
+├── README.md
+├── requirements.txt
+├── run.py
+└── .gitignore
+```
 
-# Test caches
-.pytest_cache/
-.coverage
-htmlcov/
+## Installation
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+## Démarrage
+
+```bash
+uvicorn app.main:app --reload
+```
+
+Puis ouvrir :
+- http://127.0.0.1:8000/docs
+
+## Exemple de requête
+
+```json
+{
+  "home_team": {
+    "name": "Paris FC",
+    "matches": 20,
+    "wins": 9,
+    "draws": 6,
+    "losses": 5,
+    "goals_for": 31,
+    "goals_against": 24
+  },
+  "away_team": {
+    "name": "Lyon",
+    "matches": 20,
+    "wins": 8,
+    "draws": 5,
+    "losses": 7,
+    "goals_for": 27,
+    "goals_against": 29
+  }
+}
+```
+
+## Exemple de réponse
+
+```json
+{
+  "home_team": "Paris FC",
+  "away_team": "Lyon",
+  "home_expected_goals": 1.483,
+  "away_expected_goals": 1.233,
+  "over_under_2_5": "Over 2.5",
+  "btts": "Oui",
+  "btts_probability": 0.612123,
+  "most_likely_total_goals": 2,
+  "exact_scores": [
+    {"score": "1-1", "probability": 0.168123},
+    {"score": "2-1", "probability": 0.141211}
+  ],
+  "goal_distribution": {
+    "0": 0.087,
+    "1": 0.219,
+    "2": 0.271,
+    "3": 0.215,
+    "4": 0.121,
+    "5": 0.057,
+    "6": 0.022,
+    "7": 0.006,
+    "8": 0.002
+  }
+}
+```
+
+## Modèle utilisé
+
+Le moteur se base sur une estimation de buts attendus puis une approximation par distribution de Poisson.
+
+- butes attendus domicile = (buts marqués domicile + buts encaissés extérieur) / 2
+- butes attendus extérieur = (buts marqués extérieur + buts encaissés domicile) / 2
+
+Ensuite, le script calcule la probabilité de :
+- score exact
+- total de buts
+- Over/Under 2.5
+- BTTS
+
+## Remarque
+
+Il s'agit d'un modèle statique de base, utile pour un projet de démonstration et d'analyse interne. Il n'utilise pas d'API officielle de bookmaker.
+
+## Licence
+
+MIT

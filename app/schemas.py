@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-from typing import List, Optional
-
 from pydantic import BaseModel, Field, model_validator
 
 
-class TeamInput(BaseModel):
+class TeamStats(BaseModel):
     name: str = Field(..., min_length=2, max_length=100)
     matches: int = Field(..., gt=0)
     wins: int = Field(..., ge=0)
@@ -15,7 +13,7 @@ class TeamInput(BaseModel):
     goals_against: int = Field(..., ge=0)
 
     @model_validator(mode="after")
-    def validate_totals(self):
+    def validate_match_totals(self):
         if self.wins + self.draws + self.losses != self.matches:
             raise ValueError("wins + draws + losses must equal matches")
         return self
@@ -30,8 +28,8 @@ class TeamInput(BaseModel):
 
 
 class MatchPredictionRequest(BaseModel):
-    home_team: TeamInput
-    away_team: TeamInput
+    home_team: TeamStats
+    away_team: TeamStats
 
 
 class ExactScore(BaseModel):
@@ -48,5 +46,5 @@ class MatchPredictionResponse(BaseModel):
     btts: str
     btts_probability: float
     most_likely_total_goals: int
-    exact_scores: List[ExactScore]
+    exact_scores: list[ExactScore]
     goal_distribution: dict[int, float]

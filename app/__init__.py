@@ -1,1 +1,2 @@
-__all__ = ["TeamInput", "MatchPredictionRequest", "ExactScore", "MatchPredictionResponse"]
+__all__ = ["app"]
+

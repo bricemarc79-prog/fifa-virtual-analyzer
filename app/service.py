@@ -1,62 +1,35 @@
 from __future__ import annotations
 
-from math import exp, factorial
-from typing import Dict, List, Tuple
+from app.predictor import compute_expected_goals, compute_goal_distribution, top_exact_scores
+from app.schemas import ExactScore, MatchPredictionResponse, TeamStats
 
 
-def poisson_pmf(rate: float, k: int) -> float:
-    if rate < 0:
-        raise ValueError("rate must be >= 0")
-    if k < 0:
-        raise ValueError("k must be >= 0")
-    if rate == 0:
-        return 1.0 if k == 0 else 0.0
-    return (exp(-rate) * (rate ** k)) / factorial(k)
+def predict_match(home_team: TeamStats, away_team: TeamStats) -> MatchPredictionResponse:
+    home_rate, away_rate = compute_expected_goals(home_team, away_team)
 
+    distribution = compute_goal_distribution(home_rate, away_rate, max_goals=8)
+    over_2_5_probability = sum(distribution[i] for i in range(3, 9))
 
-def compute_expected_goals(home: object, away: object) -> Tuple[float, float]:
-    """Estimate the expected goals using team attack/defense averages."""
-    home_attack = home.goals_for_avg
-    home_defense = home.goals_against_avg
+    # BTTS = 1 - prob that both teams score 0
+    btts_probability = 1.0 - (
+        (2.718281828459045 ** (-home_rate)) * (2.718281828459045 ** (-away_rate))
+    )
 
-    away_attack = away.goals_for_avg
-    away_defense = away.goals_against_avg
-
-    # A simple but stable estimate based on the opponent's defense and own attack
-    home_rate = (home_attack + away_defense) / 2.0
-    away_rate = (away_attack + home_defense) / 2.0
-    return home_rate, away_rate
-
-
-def score_probability(home_rate: float, away_rate: float, home_goals: int, away_goals: int) -> float:
-    return poisson_pmf(home_rate, home_goals) * poisson_pmf(away_rate, away_goals)
-
-
-def total_goals_probability(home_rate: float, away_rate: float, total_goals: int) -> float:
-    total = 0.0
-    for home_goals in range(total_goals + 1):
-        away_goals = total_goals - home_goals
-        if away_goals < 0:
-            continue
-        total += score_probability(home_rate, away_rate, home_goals, away_goals)
-    return total
-
-
-def compute_goal_distribution(home_rate: float, away_rate: float, max_goals: int = 8) -> Dict[int, float]:
-    distribution: Dict[int, float] = {}
-    for total_goals in range(max_goals + 1):
-        distribution[total_goals] = total_goals_probability(home_rate, away_rate, total_goals)
-    return distribution
-
-
-def top_exact_scores(home_rate: float, away_rate: float, limit: int = 2) -> List[Tuple[str, float]]:
-    score_map: Dict[Tuple[int, int], float] = {}
-    for home_goals in range(0, 6):
-        for away_goals in range(0, 6):
-            score_map[(home_goals, away_goals)] = score_probability(home_rate, away_rate, home_goals, away_goals)
-
-    ranked = sorted(score_map.items(), key=lambda item: item[1], reverse=True)
-    return [
-        (f"{home_goals}-{away_goals}", probability)
-        for (home_goals, away_goals), probability in ranked[:limit]
+    most_likely_total = max(distribution, key=distribution.get)
+    exact_scores = [
+        ExactScore(score=score, probability=round(probability, 6))
+        for score, probability in top_exact_scores(home_rate, away_rate, limit=2)
     ]
+
+    return MatchPredictionResponse(
+        home_team=home_team.name,
+        away_team=away_team.name,
+        home_expected_goals=round(home_rate, 3),
+        away_expected_goals=round(away_rate, 3),
+        over_under_2_5="Over 2.5" if over_2_5_probability >= 0.5 else "Under 2.5",
+        btts="Oui" if btts_probability >= 0.5 else "Non",
+        btts_probability=round(btts_probability, 6),
+        most_likely_total_goals=most_likely_total,
+        exact_scores=exact_scores,
+        goal_distribution={int(goal): round(prob, 8) for goal, prob in distribution.items()},
+    )
